@@ -6,19 +6,19 @@ function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [mnistData, setMnistData] = useState([]);
   const ws = useRef(null);
-  const [messages, setMessages] = useState([]);
+  const [prediction, setPrediction] = useState(null)
 
   let lastPredictionTime = 0;
-  const PREDICTION_INTERVAL = 100; // in ms (~10 fps)
+  const PREDICTION_INTERVAL = 150; // in ms (~10 fps)
   
   // Websocket setup
   useEffect(() => {
-    ws.current = new WebSocket("ws://localhost:8000/ws")
+    ws.current = new WebSocket("ws://localhost:8000/nn/ws")
     ws.current.onopen = () => console.log("Websocket connected");
     ws.current.onmessage = (e) => {
       console.log(e)
       const data = JSON.parse(e.data);
-      setMessages((prev) => [...prev, data]);
+      setPrediction(data)
       console.log("Prediction: ", data);
     };
     ws.current.onclose = () => console.log("Websocket closed");
@@ -104,11 +104,10 @@ function App() {
         
         setMnistData(pixels);
         
-        /*
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ pixels }));
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ pixels }));
         }
-        */
+        
       }
 
       animationId = requestAnimationFrame(exportLoop)
@@ -126,7 +125,7 @@ function App() {
   }
 
   return (
-    <>
+    <div style={{ display: "flex", gap: "20px", flexDirection: "row", alignItems: "center" }}>
       <div style={{padding: "20px"}}>
         <h1>Drawing Canvas</h1>
         <canvas
@@ -145,7 +144,21 @@ function App() {
           Clear Canvas
         </button>
       </div>
-    </>
+      <div style={{ fontSize: "1.2rem", width: "200px"}}>
+        <h3>Predictions:</h3>
+        {prediction ? (
+          <ul>
+            {["p1", "p2", "p3"].map((key) => (
+              <li key={key}>
+                {prediction[key].label} — {(prediction[key].confidence * 100).toFixed(3)}%
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Waiting for prediction...</p>
+        )}
+      </div>
+    </div>
   )
 }
 
