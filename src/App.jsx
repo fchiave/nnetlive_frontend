@@ -3,6 +3,7 @@ import './App.css'
 
 function App() {
   const canvasRef = useRef(null);
+  const displayRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [mnistData, setMnistData] = useState([]);
   const ws = useRef(null);
@@ -10,7 +11,7 @@ function App() {
 
   let lastPredictionTime = 0;
   const PREDICTION_INTERVAL = 150; // in ms (~10 fps)
-  
+
   // Websocket setup
   useEffect(() => {
     ws.current = new WebSocket("ws://localhost:8000/nn/ws")
@@ -40,7 +41,7 @@ function App() {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.strokeStyle = "white";
-    
+
     // Handling mouse events for drawing
     const handleMouseDown = (e) => {
       setIsDrawing(true);
@@ -72,7 +73,7 @@ function App() {
   }, [isDrawing]);
 
   // Export setup
-  useEffect (() => {
+  useEffect(() => {
     let animationId;
 
     const exportLoop = (timestamp) => {
@@ -94,20 +95,20 @@ function App() {
         //convert to grayscale
         const imageData = exportCtx.getImageData(0, 0, 28, 28);
         const pixels = [];
-        for (let i = 0; i < imageData.data.length; i+= 4){
+        for (let i = 0; i < imageData.data.length; i += 4) {
           const r = imageData.data[i];
           const g = imageData.data[i + 1];
           const b = imageData.data[i + 2];
           const gray = (r + g + b) / 3;
           pixels.push(gray / 255);
         }
-        
+
         setMnistData(pixels);
-        
+
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
           ws.current.send(JSON.stringify({ pixels }));
         }
-        
+
       }
 
       animationId = requestAnimationFrame(exportLoop)
@@ -116,6 +117,24 @@ function App() {
     animationId = requestAnimationFrame(exportLoop);
     return () => cancelAnimationFrame(animationId);
   })
+
+  useEffect(() => {
+    const display = displayRef.current;
+    const dctx = display.getContext("2d");
+
+    const imageData = dctx.createImageData(display.width, display.height);
+    
+    for (let i = 0; i < mnistData.length; i++) {
+      const gray = mnistData[i] * 255; // scale up to [0, 255]
+      const idx = i * 4;
+      imageData.data[idx] = gray;     // R
+      imageData.data[idx + 1] = gray; // G
+      imageData.data[idx + 2] = gray; // B
+      imageData.data[idx + 3] = 255;  // A
+    }
+
+    dctx.putImageData(imageData, 0, 0);
+  }, [mnistData]);
 
   // Canvas clearing setup
   const handleClear = () => {
@@ -126,7 +145,7 @@ function App() {
 
   return (
     <div style={{ display: "flex", gap: "20px", flexDirection: "row", alignItems: "center" }}>
-      <div style={{padding: "20px"}}>
+      <div style={{ padding: "20px" }}>
         <h1>Drawing Canvas</h1>
         <canvas
           ref={canvasRef}
@@ -144,7 +163,21 @@ function App() {
           Clear Canvas
         </button>
       </div>
-      <div style={{ fontSize: "1.2rem", width: "200px"}}>
+      <div style={{ padding: "20px" }}>
+        <canvas
+          ref={displayRef}
+          width={28}
+          height={28}
+          style={{
+            border: "2px solid red",
+            background: "black",
+            cursor: "crosshair",
+            display: "block",
+            marginTop: "20px",
+          }}
+        />
+      </div>
+      <div style={{ fontSize: "1.2rem", width: "200px" }}>
         <h3>Predictions:</h3>
         {prediction ? (
           <ul>
